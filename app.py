@@ -387,8 +387,8 @@ with tab_mfr:
             Class_II =("classification", lambda x: (x == "Class II").sum()),
             Class_III=("classification", lambda x: (x == "Class III").sum()),
             States   =("state",          lambda x: ", ".join(sorted(x.dropna().unique())[:4])),
-            Earliest =("initiated_date", lambda x: x.dropna().min().strftime("%Y-%m-%d") if x.dropna().any() else ""),
-            Latest   =("initiated_date", lambda x: x.dropna().max().strftime("%Y-%m-%d") if x.dropna().any() else ""),
+            Earliest =("initiated_date", lambda x: x.dropna().min().strftime("%Y-%m-%d") if len(x.dropna()) > 0 else ""),
+            Latest   =("initiated_date", lambda x: x.dropna().max().strftime("%Y-%m-%d") if len(x.dropna()) > 0 else ""),
         )
         .sort_values("Recalls", ascending=False)
         .reset_index()
