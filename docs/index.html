@@ -306,13 +306,13 @@
         <span class="card-title">Recall Trend — Monthly</span>
       </div>
       <div class="card-body">
-        <div id="chart-trend" class="placeholder"><div class="spinner"></div> Loading...</div>
+        <div id="chart-trend"></div>
       </div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">By Classification</span></div>
       <div class="card-body">
-        <div id="chart-donut" class="placeholder"><div class="spinner"></div></div>
+        <div id="chart-donut"></div>
       </div>
     </div>
   </div>
@@ -322,13 +322,13 @@
     <div class="card">
       <div class="card-header"><span class="card-title">Top 15 Manufacturers</span></div>
       <div class="card-body">
-        <div id="chart-mfr" class="placeholder"><div class="spinner"></div></div>
+        <div id="chart-mfr"></div>
       </div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Recall Reason Keywords</span></div>
       <div class="card-body">
-        <div id="chart-reasons" class="placeholder"><div class="spinner"></div></div>
+        <div id="chart-reasons"></div>
       </div>
     </div>
   </div>
@@ -433,8 +433,6 @@ async function loadData() {
   btn.textContent = 'Loading...';
   badge.className = 'nav-badge loading';
   badge.textContent = 'Fetching...';
-  setLoadingState();
-
   const startDate = document.getElementById('date-start').value;
   const endDate   = document.getElementById('date-end').value;
   const keyword   = document.getElementById('keyword').value.trim();
@@ -674,7 +672,7 @@ function renderManufacturers(data) {
   data.forEach(r => { if (r.firm) counts[r.firm] = (counts[r.firm] || 0) + 1; });
 
   const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,15);
-  const firms  = sorted.map(e => e[0]).reverse();
+  const firms  = sorted.map(e => e[0].length > 35 ? e[0].slice(0,35)+'…' : e[0]).reverse();
   const vals   = sorted.map(e => e[1]).reverse();
 
   if (!data.length) { document.getElementById('chart-mfr').innerHTML = '<div class="placeholder">No data.</div>'; return; }
@@ -682,8 +680,8 @@ function renderManufacturers(data) {
     type: 'bar', orientation: 'h',
     x: vals, y: firms,
     marker: { color: '#111827', opacity: 0.8 },
-    text: vals, textposition: 'outside',
-    textfont: { size: 10, color: '#6b7280' },
+    text: vals, textposition: 'auto',
+    textfont: { size: 10, color: '#fff' },
     hovertemplate: '<b>%{y}</b><br>%{x} recalls<extra></extra>',
   }], {
     ...PLOTLY_BASE,
