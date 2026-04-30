@@ -241,10 +241,10 @@ with st.sidebar:
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="section-label">Max Records</p>', unsafe_allow_html=True)
-    max_records = st.select_slider(
-        "max", options=[100, 250, 500, 1000, 2000], value=500,
-        label_visibility="collapsed",
-        help="Results cached for 1 hour per filter combination.",
+    max_records = st.selectbox(
+    "max", options=[100, 250, 500, 1000, 2000], index=2,
+    label_visibility="collapsed",
+    help="Results cached for 1 hour per filter combination.",
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
