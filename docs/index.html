@@ -616,6 +616,11 @@ function renderTrend(data) {
   const classes = [...activeClasses];
   const months  = [...new Set(data.map(r => r.yearMonth).filter(Boolean))].sort();
 
+  if (!data.length) {
+    document.getElementById('chart-trend').innerHTML = '<div class="placeholder">No data for selected filters.</div>';
+    return;
+  }
+
   const traces = classes.map(cls => ({
     x: months,
     y: months.map(m => byMonthClass[`${m}__${cls}`] || 0),
@@ -634,7 +639,7 @@ function renderTrend(data) {
     hovermode: 'x unified',
     legend: { orientation: 'h', y: -0.2, font: { size: 10 } },
     xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30, tickfont: { size: 10 } },
-    yaxis: { ...PLOTLY_BASE.yaxis, title: { text: 'Recalls', font: { size: 10 } } },
+    yaxis: { ...PLOTLY_BASE.yaxis, rangemode: 'nonnegative', title: { text: 'Recalls', font: { size: 10 } } },
   }, PLOTLY_CONFIG);
 }
 
@@ -672,6 +677,7 @@ function renderManufacturers(data) {
   const firms  = sorted.map(e => e[0]).reverse();
   const vals   = sorted.map(e => e[1]).reverse();
 
+  if (!data.length) { document.getElementById('chart-mfr').innerHTML = '<div class="placeholder">No data.</div>'; return; }
   Plotly.newPlot('chart-mfr', [{
     type: 'bar', orientation: 'h',
     x: vals, y: firms,
@@ -682,9 +688,9 @@ function renderManufacturers(data) {
   }], {
     ...PLOTLY_BASE,
     height: 360,
-    margin: { l: 160, r: 40, t: 10, b: 30 },
+    margin: { l: 10, r: 50, t: 10, b: 30 },
     xaxis: { ...PLOTLY_BASE.xaxis, title: { text: 'Recalls', font: { size: 10 } } },
-    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 } },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 }, automargin: true },
   }, PLOTLY_CONFIG);
 }
 
@@ -702,6 +708,7 @@ function renderReasons(data) {
   const labels = sorted.map(e => e[0]).reverse();
   const vals   = sorted.map(e => e[1]).reverse();
 
+  if (!data.length) { document.getElementById('chart-reasons').innerHTML = '<div class="placeholder">No data.</div>'; return; }
   Plotly.newPlot('chart-reasons', [{
     type: 'bar', orientation: 'h',
     x: vals, y: labels,
@@ -712,9 +719,9 @@ function renderReasons(data) {
   }], {
     ...PLOTLY_BASE,
     height: 360,
-    margin: { l: 120, r: 40, t: 10, b: 30 },
+    margin: { l: 10, r: 50, t: 10, b: 30 },
     xaxis: { ...PLOTLY_BASE.xaxis, title: { text: 'Count', font: { size: 10 } } },
-    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 } },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 }, automargin: true },
   }, PLOTLY_CONFIG);
 }
 
