@@ -1,15 +1,22 @@
 """
 api.py — openFDA Device Recall API client
-Handles all requests, pagination, and caching for the /device/recall endpoint.
 
-KEY FIELD NOTES (from openFDA /device/recall searchable fields):
-  - Classification is stored as "classification" → "Class I", "Class II", "Class III"
-    There is NO numeric "device_class" field on this endpoint.
-  - Date field is "event_date_initiated" → ISO string "YYYY-MM-DD"
-  - No "voluntary_mandated" field on /device/recall (that's on /device/enforcement)
-  - Available: recall_status, recalling_firm, reason_for_recall, product_description,
-               root_cause_description, distribution_pattern, state, country,
-               k_numbers, pma_numbers, product_code, res_event_number
+KEY FINDING: The 'classification' field (Class I/II/III) is NOT reliably
+searchable via the openFDA query string — many records lack it entirely,
+so filtering by it server-side returns zero results. Instead we fetch by
+date + keyword only, then filter classification client-side in pandas.
+
+Confirmed API fields on /device/recall:
+  - event_date_initiated  → "YYYY-MM-DD"
+  - reason_for_recall     → free text
+  - recalling_firm        → string
+  - recall_status         → "Ongoing" / "Completed" / "Terminated"
+  - classification        → "Class I" / "Class II" / "Class III" (often missing)
+  - product_description   → free text
+  - root_cause_description→ free text
+  - state, country        → strings
+  - product_code          → 3-letter code
+  - res_event_number      → recall ID
 """
 
 import time
@@ -20,30 +27,21 @@ from datetime import datetime, timedelta
 
 BASE_URL = "https://api.fda.gov/device/recall.json"
 
-# The "classification" field in this endpoint uses these exact string values
 CLASSIFICATION_VALUES = ["Class I", "Class II", "Class III"]
 
-_PAGE_LIMIT = 100   # FDA hard cap per request
+_PAGE_LIMIT = 100
 
 
 def _build_search_query(
-    classifications: list[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
     keyword: str | None = None,
 ) -> str:
     """
-    Build an openFDA Lucene-style query string.
-
-    The 'classification' field holds plain-text values like 'Class I'.
-    Dates use the 'event_date_initiated' field in YYYY-MM-DD format.
+    Build openFDA query string — date and keyword only.
+    Classification is filtered client-side after fetch.
     """
     parts = []
-
-    if classifications:
-        # Use exact phrase matching for multi-word values like "Class I"
-        class_parts = [f'classification:"{c}"' for c in classifications]
-        parts.append("(" + " OR ".join(class_parts) + ")")
 
     if start_date and end_date:
         parts.append(f"event_date_initiated:[{start_date} TO {end_date}]")
@@ -65,34 +63,12 @@ def fetch_recalls(
     start_date: str | None = None,
     end_date: str | None = None,
     keyword: str | None = None,
-    max_records: int = 1000,
+    max_records: int = 500,
 ) -> pd.DataFrame:
     """
-    Fetch device recall records from openFDA with pagination.
-
-    Parameters
-    ----------
-    classifications : tuple of str, optional
-        e.g. ("Class I", "Class II") — must match openFDA field values exactly
-    start_date : str, optional
-        "YYYY-MM-DD"
-    end_date : str, optional
-        "YYYY-MM-DD"
-    keyword : str, optional
-        Searched in reason_for_recall field
-    max_records : int
-        Total records ceiling (openFDA skip ceiling is 25 000)
-
-    Returns
-    -------
-    pd.DataFrame  — empty if no results
+    Fetch device recall records from openFDA, filter classification client-side.
     """
-    query = _build_search_query(
-        list(classifications) if classifications else None,
-        start_date,
-        end_date,
-        keyword,
-    )
+    query = _build_search_query(start_date, end_date, keyword)
 
     records: list[dict] = []
     skip = 0
@@ -106,7 +82,7 @@ def fetch_recalls(
         try:
             resp = requests.get(BASE_URL, params=params, timeout=15)
             if resp.status_code == 404:
-                break  # exhausted results
+                break
             resp.raise_for_status()
             data = resp.json()
         except requests.exceptions.HTTPError as e:
@@ -126,75 +102,60 @@ def fetch_recalls(
             break
 
         skip += len(batch)
-        time.sleep(0.05)  # be polite to the public API
+        time.sleep(0.05)
 
     if not records:
         return pd.DataFrame()
 
-    return _parse_records(records)
+    df = _parse_records(records)
+
+    # Filter classification client-side
+    if classifications:
+        cls_set = set(classifications)
+        # Keep rows that match OR rows with no classification (show as "Unknown")
+        mask = df["classification"].isin(cls_set) | (df["classification"] == "Unknown")
+        # Only filter if user didn't select all three — if all selected, keep everything
+        if cls_set != set(CLASSIFICATION_VALUES):
+            df = df[df["classification"].isin(cls_set)]
+
+    return df
 
 
 def _parse_records(records: list[dict]) -> pd.DataFrame:
-    """
-    Flatten raw API JSON into a clean, analysis-ready DataFrame.
-
-    Field mapping (actual API → our column name):
-      classification         → classification   ("Class I" / "Class II" / "Class III")
-      event_date_initiated   → initiated_date   (datetime)
-      recalling_firm         → recalling_firm
-      reason_for_recall      → reason_for_recall
-      product_description    → product_description
-      root_cause_description → root_cause
-      recall_status          → recall_status
-      state                  → state
-      product_code           → product_code
-      openfda.device_name[0] → device_name      (if available)
-    """
     rows = []
     for r in records:
         raw_date = r.get("event_date_initiated", "")
-        initiated = pd.to_datetime(raw_date, errors="coerce")  # handles YYYY-MM-DD
+        initiated = pd.to_datetime(raw_date, errors="coerce")
 
         classification = r.get("classification", "").strip()
 
-        # openfda sub-object has harmonized device info when available
         openfda = r.get("openfda", {}) or {}
         device_names = openfda.get("device_name", [])
         device_name = device_names[0] if device_names else ""
 
-        medical_specialty = openfda.get("medical_specialty_description", [])
-        specialty = medical_specialty[0] if medical_specialty else ""
-
         rows.append({
-            "recall_number":      r.get("res_event_number", ""),
-            "classification":     classification,
-            "recall_status":      r.get("recall_status", "").strip(),
-            "recalling_firm":     r.get("recalling_firm", "").strip(),
+            "recall_number":       r.get("res_event_number", ""),
+            "classification":      classification,
+            "recall_status":       r.get("recall_status", "").strip(),
+            "recalling_firm":      r.get("recalling_firm", "").strip(),
             "product_description": r.get("product_description", "").strip(),
-            "reason_for_recall":  r.get("reason_for_recall", "").strip(),
-            "root_cause":         r.get("root_cause_description", "").strip(),
-            "action":             r.get("action", "").strip(),
-            "distribution":       r.get("distribution_pattern", "").strip(),
-            "product_quantity":   r.get("product_quantity", "").strip(),
-            "product_code":       r.get("product_code", "").strip(),
-            "device_name":        device_name,
-            "specialty":          specialty,
-            "state":              r.get("state", "").strip(),
-            "country":            r.get("country", "").strip(),
-            "initiated_date":     initiated,
+            "reason_for_recall":   r.get("reason_for_recall", "").strip(),
+            "root_cause":          r.get("root_cause_description", "").strip(),
+            "product_code":        r.get("product_code", "").strip(),
+            "device_name":         device_name,
+            "state":               r.get("state", "").strip(),
+            "country":             r.get("country", "").strip(),
+            "initiated_date":      initiated,
         })
 
     df = pd.DataFrame(rows)
 
-    # Derived time columns
     df["year"] = df["initiated_date"].dt.year
     df["year_month"] = (
-        df["initiated_date"]
-        .dt.to_period("M")
-        .dt.to_timestamp()
+        df["initiated_date"].dt.to_period("M").dt.to_timestamp()
     )
 
-    # Normalise classification to canonical values; mark unknowns clearly
+    # Normalize classification — anything not Class I/II/III → "Unknown"
     valid = set(CLASSIFICATION_VALUES)
     df["classification"] = df["classification"].where(
         df["classification"].isin(valid), other="Unknown"
@@ -204,7 +165,6 @@ def _parse_records(records: list[dict]) -> pd.DataFrame:
 
 
 def get_date_range_default() -> tuple[str, str]:
-    """Sensible default: 5 years ago → today."""
     end = datetime.today()
     start = end - timedelta(days=365 * 5)
     return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
