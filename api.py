@@ -109,6 +109,10 @@ def fetch_recalls(
 
     df = _parse_records(records)
 
+    # Enrich classification via product_code lookup on /device/classification
+    from classification_api import enrich_classification
+    df = enrich_classification(df)
+
     # Filter classification client-side
     if classifications:
         cls_set = set(classifications)
