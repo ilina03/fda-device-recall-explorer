@@ -6,6 +6,7 @@
   <title>FDA Device Recall Explorer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,31 +15,24 @@
       --page:    #f9fafb;
       --border:  #e5e7eb;
       --ink:     #111827;
-      --body:    #374151;
       --muted:   #6b7280;
       --subtle:  #9ca3af;
       --surface: #f3f4f6;
       --blue:    #2563eb;
-      --blue-bg: #eff6ff;
       --red:     #dc2626;
-      --red-bg:  #fef2f2;
       --green:   #059669;
-      --green-bg:#f0fdf4;
+      --amber:   #f59e0b;
     }
 
     html { scroll-behavior: smooth; }
-
     body {
       background: var(--page);
-      color: var(--body);
+      color: var(--ink);
       font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 15px;
-      line-height: 1.6;
+      font-size: 14px;
+      line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
-
-    a { color: var(--blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
 
     /* ── nav ── */
     nav {
@@ -46,445 +40,696 @@
       background: rgba(255,255,255,0.95);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(8px);
-      padding: 0 2rem;
+      padding: 0 1.5rem;
       height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .nav-wordmark {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-    }
+    .nav-wordmark { font-size: 14px; font-weight: 600; color: var(--ink); }
     .nav-wordmark span { color: var(--muted); font-weight: 400; }
-    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
-    .nav-links a {
-      font-size: 13px;
-      color: var(--muted);
-      font-weight: 500;
+    .nav-right { display: flex; gap: 1rem; align-items: center; }
+    .nav-right a {
+      font-size: 13px; color: var(--muted); text-decoration: none; font-weight: 500;
     }
-    .nav-links a:hover { color: var(--ink); text-decoration: none; }
-    .btn-nav {
-      background: var(--ink);
-      color: #fff !important;
-      border-radius: 6px;
-      padding: 6px 14px;
-      font-size: 13px;
-      font-weight: 500;
+    .nav-right a:hover { color: var(--ink); }
+    .nav-badge {
+      font-size: 11px; font-weight: 500;
+      background: #dcfce7; color: #166534;
+      border: 1px solid #bbf7d0;
+      border-radius: 20px; padding: 2px 9px;
     }
-    .btn-nav:hover { background: #374151 !important; text-decoration: none !important; }
+    .nav-badge.loading { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+    .nav-badge.error   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
 
     /* ── layout ── */
-    .container { max-width: 960px; margin: 0 auto; padding: 0 2rem; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
-    /* ── hero ── */
-    .hero {
-      padding: 5rem 0 4rem;
+    /* ── controls bar ── */
+    .controls {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .control-group { display: flex; align-items: center; gap: 0.4rem; }
+    .control-label {
+      font-size: 11px; font-weight: 500; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); white-space: nowrap;
+    }
+    select, input[type="date"], input[type="text"] {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 9px;
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    select:focus, input:focus { border-color: var(--blue); }
+    .cls-toggles { display: flex; gap: 4px; }
+    .cls-btn {
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 4px;
+      border: 1.5px solid var(--border);
+      cursor: pointer; transition: all 0.12s;
+      background: var(--bg); color: var(--muted);
+    }
+    .cls-btn.active-I   { background: #fef2f2; color: var(--red);   border-color: var(--red); }
+    .cls-btn.active-II  { background: #eff6ff; color: var(--blue);  border-color: var(--blue); }
+    .cls-btn.active-III { background: #f0fdf4; color: var(--green); border-color: var(--green); }
+    .fetch-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 500;
+      background: var(--ink); color: #fff;
+      border: none; border-radius: 5px;
+      padding: 6px 14px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .fetch-btn:hover { background: #374151; }
+    .fetch-btn:disabled { background: var(--subtle); cursor: not-allowed; }
+
+    /* ── kpi row ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0;
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
     }
-    .hero-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--blue);
-      background: var(--blue-bg);
-      border: 1px solid #bfdbfe;
-      border-radius: 20px;
-      padding: 3px 10px;
-      margin-bottom: 1.25rem;
-      letter-spacing: 0.01em;
-    }
-    .hero-label::before {
-      content: '';
-      display: block;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--blue);
-    }
-    h1 {
-      font-size: clamp(1.75rem, 4vw, 2.5rem);
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: -0.03em;
-      line-height: 1.15;
-      margin-bottom: 1rem;
-    }
-    .hero-sub {
-      font-size: 1rem;
-      color: var(--muted);
-      max-width: 520px;
-      margin-bottom: 2rem;
-      line-height: 1.65;
-    }
-    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      padding: 9px 18px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      transition: all 0.12s;
-      text-decoration: none;
-    }
-    .btn-primary {
-      background: var(--ink);
-      color: #fff;
-      border-color: var(--ink);
-    }
-    .btn-primary:hover { background: #374151; border-color: #374151; text-decoration: none; color: #fff; }
-    .btn-secondary {
-      background: var(--bg);
-      color: var(--body);
-      border-color: var(--border);
-    }
-    .btn-secondary:hover { border-color: #d1d5db; background: var(--surface); text-decoration: none; }
-
-    /* ── stats strip ── */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      margin: 2.5rem 0;
-    }
-    .stat {
-      padding: 1.25rem 1.5rem;
+    .kpi {
+      padding: 1rem 1.25rem;
       border-right: 1px solid var(--border);
     }
-    .stat:last-child { border-right: none; }
-    .stat-value {
-      font-size: 1.6rem;
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: -0.02em;
-      line-height: 1;
+    .kpi:last-child { border-right: none; }
+    .kpi-value {
+      font-size: 1.5rem; font-weight: 600;
+      color: var(--ink); line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
-    .stat-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 4px;
-      font-weight: 500;
-    }
-
-    /* ── sections ── */
-    section { padding: 3.5rem 0; border-top: 1px solid var(--border); }
-
-    .section-label {
-      font-size: 12px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
-    }
-    h2 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: -0.02em;
-      margin-bottom: 0.4rem;
-    }
-    .section-sub {
-      font-size: 0.9rem;
-      color: var(--muted);
-      margin-bottom: 2rem;
-      max-width: 520px;
+    .kpi-value.red   { color: var(--red); }
+    .kpi-value.blue  { color: var(--blue); }
+    .kpi-value.green { color: var(--green); }
+    .kpi-label {
+      font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--subtle); margin-top: 4px;
     }
 
-    /* ── feature grid ── */
-    .feature-grid {
+    /* ── main grid ── */
+    .main { padding: 1.25rem 1.5rem; max-width: 1200px; margin: 0 auto; }
+
+    .chart-row {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .feature-card {
-      background: var(--bg);
-      padding: 1.25rem 1.4rem;
-    }
-    .feature-icon {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-      margin-bottom: 0.75rem;
-    }
-    .feature-card h3 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ink);
-      margin-bottom: 0.3rem;
-    }
-    .feature-card p {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.55;
-    }
-
-    /* ── classification cards ── */
-    .class-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
+      margin-bottom: 1rem;
     }
-    .class-card {
+    .chart-row.cols-3-1 { grid-template-columns: 3fr 1fr; }
+    .chart-row.cols-1   { grid-template-columns: 1fr; }
+    .chart-row.cols-2   { grid-template-columns: 1fr 1fr; }
+
+    .card {
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1.1rem 1.25rem;
-      border-top-width: 3px;
-    }
-    .class-card.cls1 { border-top-color: var(--red); }
-    .class-card.cls2 { border-top-color: var(--blue); }
-    .class-card.cls3 { border-top-color: var(--green); }
-    .class-badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-bottom: 0.6rem;
-      letter-spacing: 0.03em;
-    }
-    .cls1 .class-badge { background: var(--red-bg); color: var(--red); }
-    .cls2 .class-badge { background: var(--blue-bg); color: var(--blue); }
-    .cls3 .class-badge { background: var(--green-bg); color: var(--green); }
-    .class-card h3 { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 0.4rem; }
-    .class-card p { font-size: 12px; color: var(--muted); line-height: 1.55; }
-
-    /* ── code block ── */
-    .code-block {
-      background: var(--ink);
-      border-radius: 8px;
       overflow: hidden;
-      margin-top: 1.5rem;
     }
-    .code-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-bottom: 1px solid #374151;
+    .card-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .code-title { font-size: 12px; color: #9ca3af; font-weight: 500; }
-    .code-dots { display: flex; gap: 5px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    pre {
-      padding: 1.25rem 1.5rem;
-      font-family: 'Menlo', 'Consolas', monospace;
-      font-size: 13px;
-      line-height: 1.75;
-      color: #e5e7eb;
-      overflow-x: auto;
+    .card-title {
+      font-size: 12px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--muted);
     }
-    .cmt { color: #6b7280; }
-    .cmd { color: #34d399; }
-    .arg { color: #93c5fd; }
+    .card-body { padding: 0.5rem; }
+
+    /* ── table ── */
+    .table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      position: sticky; top: 0;
+      background: var(--surface);
+      padding: 7px 10px;
+      text-align: left;
+      font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--ink);
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--page); }
+
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      padding: 1px 6px; border-radius: 3px;
+    }
+    .badge-I   { background: #fef2f2; color: var(--red); }
+    .badge-II  { background: #eff6ff; color: var(--blue); }
+    .badge-III { background: #f0fdf4; color: var(--green); }
+    .badge-unk { background: var(--surface); color: var(--muted); }
+
+    /* ── empty / loading states ── */
+    .placeholder {
+      display: flex; align-items: center; justify-content: center;
+      height: 200px; color: var(--subtle); font-size: 13px;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── footer ── */
     footer {
       border-top: 1px solid var(--border);
-      padding: 2rem 0;
+      padding: 1.25rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 0.5rem;
     }
-    .footer-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-    .footer-wordmark { font-size: 13px; font-weight: 600; color: var(--ink); }
-    .footer-links { display: flex; gap: 1.25rem; }
-    .footer-links a { font-size: 12px; color: var(--muted); }
-    .footer-links a:hover { color: var(--ink); }
-    .footer-note {
-      width: 100%;
-      font-size: 11px;
-      color: var(--subtle);
-      margin-top: 0.5rem;
-    }
+    .footer-left { font-size: 12px; font-weight: 600; color: var(--ink); }
+    .footer-right { font-size: 11px; color: var(--subtle); }
+    .footer-right a { color: var(--muted); text-decoration: none; }
+    .footer-right a:hover { color: var(--ink); }
 
-    @media (max-width: 640px) {
-      nav { padding: 0 1rem; }
-      .container { padding: 0 1rem; }
-      .stats { grid-template-columns: repeat(2, 1fr); }
-      .stat { border-bottom: 1px solid var(--border); }
-      .class-grid { grid-template-columns: 1fr; }
-      .nav-links a:not(.btn-nav) { display: none; }
-      h1 { font-size: 1.75rem; }
+    @media (max-width: 768px) {
+      .kpi-row { grid-template-columns: repeat(3, 1fr); }
+      .chart-row.cols-3-1, .chart-row.cols-2 { grid-template-columns: 1fr; }
+      .controls { gap: 0.6rem; }
     }
   </style>
 </head>
 <body>
 
+<!-- Nav -->
 <nav>
   <span class="nav-wordmark">FDA Device Recall Explorer <span>/ openFDA</span></span>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#quickstart">Quickstart</a>
-    <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank">GitHub</a>
-    <a href="https://your-app-url.streamlit.app" target="_blank" class="btn-nav btn">Launch App →</a>
+  <div class="nav-right">
+    <span class="nav-badge loading" id="status-badge">Loading...</span>
+    <a href="https://github.com/ilina03/fda-device-recall-explorer" target="_blank">GitHub</a>
+    <a href="https://fda-device-recall.streamlit.app" target="_blank">Streamlit App →</a>
   </div>
 </nav>
 
-<div class="container">
-
-  <section class="hero" style="border-top: none;">
-    <div class="hero-label">openFDA · /device/recall</div>
-    <h1>FDA Device Recall Explorer</h1>
-    <p class="hero-sub">
-      Explore Class I, II, and III medical device recalls from the U.S. FDA Recall
-      Enterprise System. Filter by classification, date range, and failure mode keyword.
-      No API key required.
-    </p>
-    <div class="hero-actions">
-      <a href="https://your-app-url.streamlit.app" target="_blank" class="btn btn-primary">Launch Dashboard →</a>
-      <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank" class="btn btn-secondary">View on GitHub</a>
+<!-- Controls -->
+<div class="controls">
+  <div class="control-group">
+    <span class="control-label">Classification</span>
+    <div class="cls-toggles">
+      <button class="cls-btn active-I"   data-cls="Class I"   onclick="toggleClass(this)">Class I</button>
+      <button class="cls-btn active-II"  data-cls="Class II"  onclick="toggleClass(this)">Class II</button>
+      <button class="cls-btn active-III" data-cls="Class III" onclick="toggleClass(this)">Class III</button>
     </div>
+  </div>
+  <div class="control-group">
+    <span class="control-label">From</span>
+    <input type="date" id="date-start" value="2020-01-01">
+  </div>
+  <div class="control-group">
+    <span class="control-label">To</span>
+    <input type="date" id="date-end">
+  </div>
+  <div class="control-group">
+    <span class="control-label">Keyword</span>
+    <input type="text" id="keyword" placeholder="e.g. sterility, software" style="width:160px">
+  </div>
+  <div class="control-group">
+    <span class="control-label">Records</span>
+    <select id="max-records">
+      <option value="100">100</option>
+      <option value="250">250</option>
+      <option value="500" selected>500</option>
+      <option value="1000">1000</option>
+    </select>
+  </div>
+  <button class="fetch-btn" onclick="loadData()" id="fetch-btn">Apply Filters</button>
+</div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value">2004</div>
-        <div class="stat-label">Coverage from</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">37K+</div>
-        <div class="stat-label">Device recall records</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">I · II · III</div>
-        <div class="stat-label">Risk classifications</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">Free</div>
-        <div class="stat-label">No API key required</div>
-      </div>
-    </div>
-  </section>
+<!-- KPI Row -->
+<div class="kpi-row">
+  <div class="kpi"><div class="kpi-value" id="kpi-total">—</div><div class="kpi-label">Total Recalls</div></div>
+  <div class="kpi"><div class="kpi-value red"   id="kpi-1">—</div><div class="kpi-label">Class I</div></div>
+  <div class="kpi"><div class="kpi-value blue"  id="kpi-2">—</div><div class="kpi-label">Class II</div></div>
+  <div class="kpi"><div class="kpi-value green" id="kpi-3">—</div><div class="kpi-label">Class III</div></div>
+  <div class="kpi"><div class="kpi-value" id="kpi-firms">—</div><div class="kpi-label">Manufacturers</div></div>
+  <div class="kpi"><div class="kpi-value" id="kpi-span" style="font-size:1rem">—</div><div class="kpi-label">Date Span</div></div>
+</div>
 
-  <section id="features">
-    <p class="section-label">Features</p>
-    <h2>Everything you need to analyze device recalls</h2>
-    <p class="section-sub">Built for biomedical engineers and quality professionals who already know what this data means.</p>
+<!-- Charts -->
+<div class="main">
 
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">📈</div>
-        <h3>Recall Trend Over Time</h3>
-        <p>Monthly or quarterly line chart by classification. Identify spikes in Class I events at a glance.</p>
+  <!-- Row 1: trend + donut -->
+  <div class="chart-row cols-3-1">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recall Trend — Monthly</span>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🏭</div>
-        <h3>Manufacturer Breakdown</h3>
-        <p>Top-N recalling firms with a sortable detail table showing class split, states, and date range.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚠️</div>
-        <h3>Recall Reason Analysis</h3>
-        <p>Keyword frequency across 20 failure-mode categories — sterility, software, labeling, and more.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🗺️</div>
-        <h3>US Geography Map</h3>
-        <p>Choropleth of recall volume by state (recalling firm location) with sortable companion table.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔍</div>
-        <h3>Flexible Filtering</h3>
-        <p>Classification, date range, and free-text keyword applied simultaneously from the sidebar.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⬇️</div>
-        <h3>CSV Export</h3>
-        <p>Download any filtered view for use in Excel, Python, or your own analysis pipeline.</p>
+      <div class="card-body">
+        <div id="chart-trend" class="placeholder"><div class="spinner"></div> Loading...</div>
       </div>
     </div>
-  </section>
-
-  <section>
-    <p class="section-label">FDA Classification</p>
-    <h2>Understanding the risk tiers</h2>
-    <p class="section-sub">Per 21 CFR 513 — the foundation of FDA's device recall system.</p>
-
-    <div class="class-grid">
-      <div class="class-card cls1">
-        <span class="class-badge">Class I</span>
-        <h3>Most Serious</h3>
-        <p>Reasonable probability of causing serious adverse health consequences or death. Triggers urgent field actions and public notification.</p>
-      </div>
-      <div class="class-card cls2">
-        <span class="class-badge">Class II</span>
-        <h3>Moderate Risk</h3>
-        <p>May cause temporary or medically reversible adverse health consequences. Unlikely to cause permanent injury.</p>
-      </div>
-      <div class="class-card cls3">
-        <span class="class-badge">Class III</span>
-        <h3>Low Risk</h3>
-        <p>Unlikely to cause adverse health consequences, but still in violation of FDA-administered laws.</p>
+    <div class="card">
+      <div class="card-header"><span class="card-title">By Classification</span></div>
+      <div class="card-body">
+        <div id="chart-donut" class="placeholder"><div class="spinner"></div></div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <section id="quickstart">
-    <p class="section-label">Quickstart</p>
-    <h2>Run it locally in 4 steps</h2>
-    <p class="section-sub">Python 3.10+ required. No API key or environment variables needed.</p>
+  <!-- Row 2: manufacturers + reasons -->
+  <div class="chart-row cols-2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Top 15 Manufacturers</span></div>
+      <div class="card-body">
+        <div id="chart-mfr" class="placeholder"><div class="spinner"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Recall Reason Keywords</span></div>
+      <div class="card-body">
+        <div id="chart-reasons" class="placeholder"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
 
-    <div class="code-block">
-      <div class="code-header">
-        <div class="code-dots">
-          <div class="dot" style="background:#f87171"></div>
-          <div class="dot" style="background:#fbbf24"></div>
-          <div class="dot" style="background:#34d399"></div>
+  <!-- Row 3: raw data table -->
+  <div class="chart-row cols-1">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recall Records</span>
+        <button onclick="downloadCSV()" style="font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer;color:var(--muted)">Export CSV</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="table-wrap">
+          <table id="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Class</th>
+                <th>Status</th>
+                <th>Firm</th>
+                <th>Product</th>
+                <th>Reason for Recall</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--subtle);padding:2rem">Loading data...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <span class="code-title">bash</span>
       </div>
-      <pre><span class="cmt"># Clone and enter the repo</span>
-<span class="cmd">$</span> <span class="arg">git clone https://github.com/your-username/fda-device-recall-explorer.git</span>
-<span class="cmd">$</span> <span class="arg">cd fda-device-recall-explorer</span>
-
-<span class="cmt"># Create and activate a virtual environment</span>
-<span class="cmd">$</span> <span class="arg">python -m venv .venv && source .venv/bin/activate</span>
-<span class="cmd">$</span> <span class="arg">pip install -r requirements.txt</span>
-
-<span class="cmt"># Launch</span>
-<span class="cmd">$</span> <span class="arg">streamlit run app.py</span>
-<span class="cmt"># Opens at http://localhost:8501</span></pre>
     </div>
-  </section>
+  </div>
 
 </div>
 
 <footer>
-  <div class="container">
-    <div class="footer-inner">
-      <span class="footer-wordmark">FDA Device Recall Explorer</span>
-      <div class="footer-links">
-        <a href="https://your-app-url.streamlit.app" target="_blank">Live App</a>
-        <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank">GitHub</a>
-        <a href="https://open.fda.gov/apis/device/recall/" target="_blank">openFDA</a>
-      </div>
-      <p class="footer-note">
-        Data from <a href="https://open.fda.gov/apis/device/recall/">openFDA /device/recall</a> · Updated weekly by the FDA ·
-        For research and informational use only — not for clinical decision-making · MIT License
-      </p>
-    </div>
-  </div>
+  <span class="footer-left">FDA Device Recall Explorer</span>
+  <span class="footer-right">
+    Data: <a href="https://open.fda.gov/apis/device/recall/" target="_blank">openFDA /device/recall</a> ·
+    Updated weekly by FDA · For research use only, not for clinical decision-making ·
+    <a href="https://github.com/ilina03/fda-device-recall-explorer" target="_blank">GitHub</a>
+  </span>
 </footer>
 
+<script>
+// ── Config ────────────────────────────────────────────────────────
+const BASE_URL = 'https://api.fda.gov/device/recall.json';
+const PAGE_LIMIT = 100;
+
+const CLASS_COLORS = {
+  'Class I':   '#dc2626',
+  'Class II':  '#2563eb',
+  'Class III': '#059669',
+  'Unknown':   '#9ca3af',
+};
+
+const REASON_KEYWORDS = [
+  'sterility','labeling','software','contamination','mislabeled',
+  'packaging','failure','malfunction','leakage','breakage',
+  'biocompatibility','incorrect','missing','design','manufacturing',
+  'specification','corrosion','fracture','electrical',
+];
+
+const PLOTLY_BASE = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(0,0,0,0)',
+  font: { family: 'Inter, sans-serif', color: '#6b7280', size: 11 },
+  margin: { l: 10, r: 10, t: 10, b: 10 },
+  xaxis: { gridcolor: '#e5e7eb', linecolor: '#e5e7eb', zeroline: false },
+  yaxis: { gridcolor: '#e5e7eb', linecolor: '#e5e7eb', zeroline: false },
+};
+
+const PLOTLY_CONFIG = { displayModeBar: false, responsive: true };
+
+// ── State ────────────────────────────────────────────────────────
+let allRecords = [];
+let activeClasses = new Set(['Class I', 'Class II', 'Class III']);
+
+// Set default date-end to today
+document.getElementById('date-end').value = new Date().toISOString().split('T')[0];
+
+// ── Classification toggles ────────────────────────────────────────
+function toggleClass(btn) {
+  const cls = btn.dataset.cls;
+  const key = cls.replace('Class ', '');
+  if (activeClasses.has(cls) && activeClasses.size > 1) {
+    activeClasses.delete(cls);
+    btn.className = 'cls-btn';
+  } else if (!activeClasses.has(cls)) {
+    activeClasses.add(cls);
+    btn.className = `cls-btn active-${key}`;
+  }
+  if (allRecords.length > 0) renderAll();
+}
+
+// ── Fetch data ────────────────────────────────────────────────────
+async function loadData() {
+  const btn = document.getElementById('fetch-btn');
+  const badge = document.getElementById('status-badge');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  badge.className = 'nav-badge loading';
+  badge.textContent = 'Fetching...';
+  setLoadingState();
+
+  const startDate = document.getElementById('date-start').value;
+  const endDate   = document.getElementById('date-end').value;
+  const keyword   = document.getElementById('keyword').value.trim();
+  const maxRecs   = parseInt(document.getElementById('max-records').value);
+
+  try {
+    allRecords = await fetchAllRecords(startDate, endDate, keyword, maxRecs);
+    renderAll();
+    badge.className = 'nav-badge';
+    badge.textContent = `${allRecords.length.toLocaleString()} records loaded`;
+  } catch(e) {
+    badge.className = 'nav-badge error';
+    badge.textContent = 'API error';
+    console.error(e);
+    showError();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Apply Filters';
+  }
+}
+
+async function fetchAllRecords(startDate, endDate, keyword, maxRecs) {
+  let records = [];
+  let skip = 0;
+
+  while (records.length < maxRecs) {
+    const batch = Math.min(PAGE_LIMIT, maxRecs - records.length);
+    const params = new URLSearchParams({ limit: batch, skip });
+
+    const parts = [];
+    if (startDate && endDate)
+      parts.push(`event_date_initiated:[${startDate} TO ${endDate}]`);
+    if (keyword)
+      parts.push(`reason_for_recall:"${keyword.replace(/"/g, '')}"`);
+    if (parts.length) params.set('search', parts.join(' AND '));
+
+    const resp = await fetch(`${BASE_URL}?${params}`);
+    if (resp.status === 404) break;
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+
+    const data = await resp.json();
+    const results = data.results || [];
+    if (!results.length) break;
+
+    records = records.concat(results.map(parseRecord));
+
+    const total = data.meta?.results?.total || 0;
+    if (skip + results.length >= total || skip + results.length >= maxRecs) break;
+    skip += results.length;
+
+    await sleep(50);
+  }
+  return records;
+}
+
+function parseRecord(r) {
+  const raw = r.classification || '';
+  const cls = ['Class I','Class II','Class III'].includes(raw) ? raw : 'Unknown';
+  const dateStr = r.event_date_initiated || '';
+  return {
+    date:        dateStr,
+    dateObj:     dateStr ? new Date(dateStr) : null,
+    yearMonth:   dateStr ? dateStr.slice(0,7) : '',
+    classification: cls,
+    recall_status:  r.recall_status || '',
+    firm:           r.recalling_firm || '',
+    product:        (r.product_description || '').slice(0, 120),
+    reason:         r.reason_for_recall || '',
+    state:          r.state || '',
+    product_code:   r.product_code || '',
+    recall_number:  r.res_event_number || '',
+  };
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Filter ────────────────────────────────────────────────────────
+function filtered() {
+  return allRecords.filter(r =>
+    activeClasses.has(r.classification) || r.classification === 'Unknown'
+  );
+}
+
+// ── Render all ────────────────────────────────────────────────────
+function renderAll() {
+  const data = filtered();
+  updateKPIs(data);
+  renderTrend(data);
+  renderDonut(data);
+  renderManufacturers(data);
+  renderReasons(data);
+  renderTable(data);
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────
+function updateKPIs(data) {
+  const n1 = data.filter(r => r.classification === 'Class I').length;
+  const n2 = data.filter(r => r.classification === 'Class II').length;
+  const n3 = data.filter(r => r.classification === 'Class III').length;
+  const firms = new Set(data.map(r => r.firm).filter(Boolean)).size;
+
+  const dates = data.map(r => r.dateObj).filter(Boolean).sort((a,b) => a-b);
+  const span = dates.length >= 2
+    ? `${fmtMonth(dates[0])} – ${fmtMonth(dates[dates.length-1])}`
+    : '—';
+
+  document.getElementById('kpi-total').textContent  = data.length.toLocaleString();
+  document.getElementById('kpi-1').textContent      = n1.toLocaleString();
+  document.getElementById('kpi-2').textContent      = n2.toLocaleString();
+  document.getElementById('kpi-3').textContent      = n3.toLocaleString();
+  document.getElementById('kpi-firms').textContent  = firms.toLocaleString();
+  document.getElementById('kpi-span').textContent   = span;
+}
+
+function fmtMonth(d) {
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+// ── Trend chart ───────────────────────────────────────────────────
+function renderTrend(data) {
+  const byMonthClass = {};
+  data.forEach(r => {
+    if (!r.yearMonth) return;
+    const key = `${r.yearMonth}__${r.classification}`;
+    byMonthClass[key] = (byMonthClass[key] || 0) + 1;
+  });
+
+  const classes = [...activeClasses];
+  const months  = [...new Set(data.map(r => r.yearMonth).filter(Boolean))].sort();
+
+  const traces = classes.map(cls => ({
+    x: months,
+    y: months.map(m => byMonthClass[`${m}__${cls}`] || 0),
+    name: cls,
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: CLASS_COLORS[cls], width: 2 },
+    marker: { size: 4, color: CLASS_COLORS[cls] },
+    hovertemplate: `<b>${cls}</b><br>%{x}: %{y} recalls<extra></extra>`,
+  }));
+
+  Plotly.newPlot('chart-trend', traces, {
+    ...PLOTLY_BASE,
+    height: 260,
+    margin: { l: 40, r: 10, t: 10, b: 40 },
+    hovermode: 'x unified',
+    legend: { orientation: 'h', y: -0.2, font: { size: 10 } },
+    xaxis: { ...PLOTLY_BASE.xaxis, tickangle: -30, tickfont: { size: 10 } },
+    yaxis: { ...PLOTLY_BASE.yaxis, title: { text: 'Recalls', font: { size: 10 } } },
+  }, PLOTLY_CONFIG);
+}
+
+// ── Donut chart ───────────────────────────────────────────────────
+function renderDonut(data) {
+  const counts = {};
+  data.forEach(r => { counts[r.classification] = (counts[r.classification] || 0) + 1; });
+  const labels = Object.keys(counts);
+  const values = labels.map(l => counts[l]);
+
+  Plotly.newPlot('chart-donut', [{
+    type: 'pie', hole: 0.6,
+    labels, values,
+    marker: {
+      colors: labels.map(l => CLASS_COLORS[l] || CLASS_COLORS['Unknown']),
+      line: { color: '#fff', width: 2 },
+    },
+    textinfo: 'label+percent',
+    textfont: { size: 10 },
+    hovertemplate: '%{label}<br>%{value:,} recalls (%{percent})<extra></extra>',
+  }], {
+    ...PLOTLY_BASE,
+    height: 260,
+    margin: { l: 10, r: 10, t: 10, b: 10 },
+    showlegend: false,
+  }, PLOTLY_CONFIG);
+}
+
+// ── Manufacturers chart ───────────────────────────────────────────
+function renderManufacturers(data) {
+  const counts = {};
+  data.forEach(r => { if (r.firm) counts[r.firm] = (counts[r.firm] || 0) + 1; });
+
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,15);
+  const firms  = sorted.map(e => e[0]).reverse();
+  const vals   = sorted.map(e => e[1]).reverse();
+
+  Plotly.newPlot('chart-mfr', [{
+    type: 'bar', orientation: 'h',
+    x: vals, y: firms,
+    marker: { color: '#111827', opacity: 0.8 },
+    text: vals, textposition: 'outside',
+    textfont: { size: 10, color: '#6b7280' },
+    hovertemplate: '<b>%{y}</b><br>%{x} recalls<extra></extra>',
+  }], {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 160, r: 40, t: 10, b: 30 },
+    xaxis: { ...PLOTLY_BASE.xaxis, title: { text: 'Recalls', font: { size: 10 } } },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 } },
+  }, PLOTLY_CONFIG);
+}
+
+// ── Reasons chart ─────────────────────────────────────────────────
+function renderReasons(data) {
+  const combined = data.map(r => (r.reason + ' ' + (r.root_cause||'')).toLowerCase());
+
+  const counts = {};
+  REASON_KEYWORDS.forEach(kw => {
+    const n = combined.filter(t => t.includes(kw)).length;
+    if (n > 0) counts[kw.charAt(0).toUpperCase() + kw.slice(1)] = n;
+  });
+
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,12);
+  const labels = sorted.map(e => e[0]).reverse();
+  const vals   = sorted.map(e => e[1]).reverse();
+
+  Plotly.newPlot('chart-reasons', [{
+    type: 'bar', orientation: 'h',
+    x: vals, y: labels,
+    marker: { color: '#2563eb', opacity: 0.7 },
+    text: vals, textposition: 'outside',
+    textfont: { size: 10, color: '#6b7280' },
+    hovertemplate: '<b>%{y}</b><br>%{x} records<extra></extra>',
+  }], {
+    ...PLOTLY_BASE,
+    height: 360,
+    margin: { l: 120, r: 40, t: 10, b: 30 },
+    xaxis: { ...PLOTLY_BASE.xaxis, title: { text: 'Count', font: { size: 10 } } },
+    yaxis: { ...PLOTLY_BASE.yaxis, tickfont: { size: 10 } },
+  }, PLOTLY_CONFIG);
+}
+
+// ── Table ─────────────────────────────────────────────────────────
+function renderTable(data) {
+  const tbody = document.getElementById('table-body');
+  const sorted = [...data].sort((a,b) => (b.dateObj||0) - (a.dateObj||0));
+
+  if (!sorted.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--subtle);padding:2rem">No records match current filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.slice(0, 500).map(r => `
+    <tr>
+      <td>${r.date}</td>
+      <td><span class="badge badge-${r.classification === 'Unknown' ? 'unk' : r.classification.replace('Class ','')}">${r.classification}</span></td>
+      <td>${r.recall_status}</td>
+      <td title="${r.firm}">${r.firm.slice(0,28)}${r.firm.length>28?'…':''}</td>
+      <td title="${r.product}">${r.product.slice(0,40)}${r.product.length>40?'…':''}</td>
+      <td title="${r.reason}">${r.reason.slice(0,60)}${r.reason.length>60?'…':''}</td>
+      <td>${r.state}</td>
+    </tr>
+  `).join('');
+}
+
+// ── CSV export ────────────────────────────────────────────────────
+function downloadCSV() {
+  const data = filtered();
+  const headers = ['Date','Classification','Status','Firm','Product','Reason','State','Recall #'];
+  const rows = data.map(r => [
+    r.date, r.classification, r.recall_status,
+    `"${r.firm.replace(/"/g,'""')}"`,
+    `"${r.product.replace(/"/g,'""')}"`,
+    `"${r.reason.replace(/"/g,'""')}"`,
+    r.state, r.recall_number,
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `fda_device_recalls_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── Loading / error states ────────────────────────────────────────
+function setLoadingState() {
+  ['chart-trend','chart-donut','chart-mfr','chart-reasons'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      '<div class="placeholder"><div class="spinner"></div> Loading...</div>';
+  });
+  document.getElementById('table-body').innerHTML =
+    '<tr><td colspan="7" style="text-align:center;color:var(--subtle);padding:2rem">Loading...</td></tr>';
+  ['kpi-total','kpi-1','kpi-2','kpi-3','kpi-firms','kpi-span'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+}
+
+function showError() {
+  ['chart-trend','chart-donut','chart-mfr','chart-reasons'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      '<div class="placeholder">Could not load data. Check your connection.</div>';
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+loadData();
+</script>
 </body>
 </html>
