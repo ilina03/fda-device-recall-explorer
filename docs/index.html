@@ -442,6 +442,12 @@ async function loadData() {
 
   try {
     allRecords = await fetchAllRecords(startDate, endDate, keyword, maxRecs);
+
+    // Render immediately, then enrich classifications via product_code lookup
+    renderAll();
+    badge.textContent = `${allRecords.length.toLocaleString()} records — enriching classifications...`;
+
+    await enrichClassifications();
     renderAll();
     badge.className = 'nav-badge';
     badge.textContent = `${allRecords.length.toLocaleString()} records loaded`;
@@ -454,6 +460,51 @@ async function loadData() {
     btn.disabled = false;
     btn.textContent = 'Apply Filters';
   }
+}
+
+// ── Classification enrichment via /device/classification ──────────
+const classificationCache = {};
+
+async function enrichClassifications() {
+  const CLASS_URL = 'https://api.fda.gov/device/classification.json';
+  const CLASS_NUM_MAP = { '1': 'Class I', '2': 'Class II', '3': 'Class III' };
+
+  const unknownCodes = [...new Set(
+    allRecords
+      .filter(r => r.classification === 'Unknown' && r.product_code)
+      .map(r => r.product_code)
+      .filter(c => !(c in classificationCache))
+  )];
+
+  if (!unknownCodes.length) { applyClassificationCache(); return; }
+
+  const batchSize = 50;
+  for (let i = 0; i < unknownCodes.length; i += batchSize) {
+    const batch = unknownCodes.slice(i, i + batchSize);
+    const query = batch.map(c => `product_code:"${c}"`).join(' OR ');
+    try {
+      const params = new URLSearchParams({ search: query, limit: 99 });
+      const resp = await fetch(`${CLASS_URL}?${params}`);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      for (const rec of (data.results || [])) {
+        const code = rec.product_code;
+        const cls  = CLASS_NUM_MAP[String(rec.device_class)];
+        if (code && cls && !(code in classificationCache))
+          classificationCache[code] = cls;
+      }
+    } catch(e) { /* skip failed batch */ }
+    await sleep(60);
+  }
+  applyClassificationCache();
+}
+
+function applyClassificationCache() {
+  allRecords = allRecords.map(r => {
+    if (r.classification !== 'Unknown') return r;
+    const looked_up = classificationCache[r.product_code];
+    return looked_up ? { ...r, classification: looked_up } : r;
+  });
 }
 
 async function fetchAllRecords(startDate, endDate, keyword, maxRecs) {
