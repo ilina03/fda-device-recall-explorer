@@ -95,11 +95,6 @@ html, body, [class*="css"] {
 }
 [data-testid="stMetricDelta"] svg { display: none; }
 
-/* Class I specifically gets red — semantically correct */
-.metric-class-i [data-testid="stMetricValue"] {
-    color: #dc2626 !important;
-}
-
 /* ── tabs ── */
 [data-baseweb="tab-list"] {
     background: transparent !important;
@@ -242,9 +237,9 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p class="section-label">Max Records</p>', unsafe_allow_html=True)
     max_records = st.selectbox(
-    "max", options=[100, 250, 500, 1000, 2000], index=2,
-    label_visibility="collapsed",
-    help="Results cached for 1 hour per filter combination.",
+        "max", options=[100, 250, 500, 1000, 2000], index=2,
+        label_visibility="collapsed",
+        help="Results cached for 1 hour per filter combination.",
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -292,9 +287,8 @@ with st.spinner("Loading from openFDA..."):
 st.markdown(
     '<p class="page-title">FDA Device Recall Explorer</p>'
     '<p class="page-meta">'
-    '<a href="https://open.fda.gov/apis/device/recall/">openFDA</a> · '
-    '/device/recall endpoint · Class I / II / III · '
-    'FDA Recall Enterprise System</p>',
+    'Data from <a href="https://open.fda.gov/apis/device/recall/">openFDA</a> · '
+    'Updated weekly by the FDA · For research use only</p>',
     unsafe_allow_html=True,
 )
 
@@ -314,25 +308,17 @@ n2     = (df["classification"] == "Class II").sum()
 n3     = (df["classification"] == "Class III").sum()
 nfirms = df["recalling_firm"].nunique()
 span   = (
-    f"{df['initiated_date'].min().strftime('%b %Y')} – "
-    f"{df['initiated_date'].max().strftime('%b %Y')}"
+    f"{df['initiated_date'].min().strftime('%b \'%y')} – "
+    f"{df['initiated_date'].max().strftime('%b \'%y')}"
     if df["initiated_date"].notna().any() else "N/A"
 )
 
 m1.metric("Total Recalls", f"{total:,}")
-m2.metric("Class I",   f"{n1:,}",   help="Most serious — may cause death or serious injury")
-m3.metric("Class II",  f"{n2:,}",   help="May cause temporary or reversible consequences")
-m4.metric("Class III", f"{n3:,}",   help="Least likely to cause adverse health consequences")
+m2.metric("Class I",       f"{n1:,}",   help="Most serious — may cause death or serious injury")
+m3.metric("Class II",      f"{n2:,}",   help="May cause temporary or reversible consequences")
+m4.metric("Class III",     f"{n3:,}",   help="Least likely to cause adverse health consequences")
 m5.metric("Manufacturers", f"{nfirms:,}")
-m6.metric("Date Span", span)
-
-# Inject red color for Class I metric via JS (Streamlit doesn't expose per-metric styling)
-st.markdown("""
-<script>
-const vals = window.parent.document.querySelectorAll('[data-testid="stMetricValue"]');
-if (vals.length >= 2) vals[1].style.color = '#dc2626';
-</script>
-""", unsafe_allow_html=True)
+m6.metric("Span",          span)
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
