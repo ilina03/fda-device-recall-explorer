@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FDA Device Recall Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #ffffff;
+      --page:    #f9fafb;
+      --border:  #e5e7eb;
+      --ink:     #111827;
+      --body:    #374151;
+      --muted:   #6b7280;
+      --subtle:  #9ca3af;
+      --surface: #f3f4f6;
+      --blue:    #2563eb;
+      --blue-bg: #eff6ff;
+      --red:     #dc2626;
+      --red-bg:  #fef2f2;
+      --green:   #059669;
+      --green-bg:#f0fdf4;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--page);
+      color: var(--body);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      padding: 0 2rem;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-wordmark {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .nav-wordmark span { color: var(--muted); font-weight: 400; }
+    .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+    .nav-links a {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .nav-links a:hover { color: var(--ink); text-decoration: none; }
+    .btn-nav {
+      background: var(--ink);
+      color: #fff !important;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .btn-nav:hover { background: #374151 !important; text-decoration: none !important; }
+
+    /* ── layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ── hero ── */
+    .hero {
+      padding: 5rem 0 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--blue);
+      background: var(--blue-bg);
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      padding: 3px 10px;
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.01em;
+    }
+    .hero-label::before {
+      content: '';
+      display: block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin-bottom: 2rem;
+      line-height: 1.65;
+    }
+    .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 9px 18px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      transition: all 0.12s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .btn-primary:hover { background: #374151; border-color: #374151; text-decoration: none; color: #fff; }
+    .btn-secondary {
+      background: var(--bg);
+      color: var(--body);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { border-color: #d1d5db; background: var(--surface); text-decoration: none; }
+
+    /* ── stats strip ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 2.5rem 0;
+    }
+    .stat {
+      padding: 1.25rem 1.5rem;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ── sections ── */
+    section { padding: 3.5rem 0; border-top: 1px solid var(--border); }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+    .section-sub {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+      max-width: 520px;
+    }
+
+    /* ── feature grid ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .feature-card {
+      background: var(--bg);
+      padding: 1.25rem 1.4rem;
+    }
+    .feature-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      margin-bottom: 0.75rem;
+    }
+    .feature-card h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.3rem;
+    }
+    .feature-card p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* ── classification cards ── */
+    .class-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .class-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem 1.25rem;
+      border-top-width: 3px;
+    }
+    .class-card.cls1 { border-top-color: var(--red); }
+    .class-card.cls2 { border-top-color: var(--blue); }
+    .class-card.cls3 { border-top-color: var(--green); }
+    .class-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 0.6rem;
+      letter-spacing: 0.03em;
+    }
+    .cls1 .class-badge { background: var(--red-bg); color: var(--red); }
+    .cls2 .class-badge { background: var(--blue-bg); color: var(--blue); }
+    .cls3 .class-badge { background: var(--green-bg); color: var(--green); }
+    .class-card h3 { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 0.4rem; }
+    .class-card p { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+    /* ── code block ── */
+    .code-block {
+      background: var(--ink);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 1.5rem;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid #374151;
+    }
+    .code-title { font-size: 12px; color: #9ca3af; font-weight: 500; }
+    .code-dots { display: flex; gap: 5px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    pre {
+      padding: 1.25rem 1.5rem;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.75;
+      color: #e5e7eb;
+      overflow-x: auto;
+    }
+    .cmt { color: #6b7280; }
+    .cmd { color: #34d399; }
+    .arg { color: #93c5fd; }
+
+    /* ── footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .footer-wordmark { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .footer-links { display: flex; gap: 1.25rem; }
+    .footer-links a { font-size: 12px; color: var(--muted); }
+    .footer-links a:hover { color: var(--ink); }
+    .footer-note {
+      width: 100%;
+      font-size: 11px;
+      color: var(--subtle);
+      margin-top: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .container { padding: 0 1rem; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .stat { border-bottom: 1px solid var(--border); }
+      .class-grid { grid-template-columns: 1fr; }
+      .nav-links a:not(.btn-nav) { display: none; }
+      h1 { font-size: 1.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-wordmark">FDA Device Recall Explorer <span>/ openFDA</span></span>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank">GitHub</a>
+    <a href="https://your-app-url.streamlit.app" target="_blank" class="btn-nav btn">Launch App →</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <section class="hero" style="border-top: none;">
+    <div class="hero-label">openFDA · /device/recall</div>
+    <h1>FDA Device Recall Explorer</h1>
+    <p class="hero-sub">
+      Explore Class I, II, and III medical device recalls from the U.S. FDA Recall
+      Enterprise System. Filter by classification, date range, and failure mode keyword.
+      No API key required.
+    </p>
+    <div class="hero-actions">
+      <a href="https://your-app-url.streamlit.app" target="_blank" class="btn btn-primary">Launch Dashboard →</a>
+      <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank" class="btn btn-secondary">View on GitHub</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">2004</div>
+        <div class="stat-label">Coverage from</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">37K+</div>
+        <div class="stat-label">Device recall records</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">I · II · III</div>
+        <div class="stat-label">Risk classifications</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">Free</div>
+        <div class="stat-label">No API key required</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <p class="section-label">Features</p>
+    <h2>Everything you need to analyze device recalls</h2>
+    <p class="section-sub">Built for biomedical engineers and quality professionals who already know what this data means.</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Recall Trend Over Time</h3>
+        <p>Monthly or quarterly line chart by classification. Identify spikes in Class I events at a glance.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏭</div>
+        <h3>Manufacturer Breakdown</h3>
+        <p>Top-N recalling firms with a sortable detail table showing class split, states, and date range.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚠️</div>
+        <h3>Recall Reason Analysis</h3>
+        <p>Keyword frequency across 20 failure-mode categories — sterility, software, labeling, and more.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <h3>US Geography Map</h3>
+        <p>Choropleth of recall volume by state (recalling firm location) with sortable companion table.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <h3>Flexible Filtering</h3>
+        <p>Classification, date range, and free-text keyword applied simultaneously from the sidebar.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⬇️</div>
+        <h3>CSV Export</h3>
+        <p>Download any filtered view for use in Excel, Python, or your own analysis pipeline.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-label">FDA Classification</p>
+    <h2>Understanding the risk tiers</h2>
+    <p class="section-sub">Per 21 CFR 513 — the foundation of FDA's device recall system.</p>
+
+    <div class="class-grid">
+      <div class="class-card cls1">
+        <span class="class-badge">Class I</span>
+        <h3>Most Serious</h3>
+        <p>Reasonable probability of causing serious adverse health consequences or death. Triggers urgent field actions and public notification.</p>
+      </div>
+      <div class="class-card cls2">
+        <span class="class-badge">Class II</span>
+        <h3>Moderate Risk</h3>
+        <p>May cause temporary or medically reversible adverse health consequences. Unlikely to cause permanent injury.</p>
+      </div>
+      <div class="class-card cls3">
+        <span class="class-badge">Class III</span>
+        <h3>Low Risk</h3>
+        <p>Unlikely to cause adverse health consequences, but still in violation of FDA-administered laws.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart">
+    <p class="section-label">Quickstart</p>
+    <h2>Run it locally in 4 steps</h2>
+    <p class="section-sub">Python 3.10+ required. No API key or environment variables needed.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots">
+          <div class="dot" style="background:#f87171"></div>
+          <div class="dot" style="background:#fbbf24"></div>
+          <div class="dot" style="background:#34d399"></div>
+        </div>
+        <span class="code-title">bash</span>
+      </div>
+      <pre><span class="cmt"># Clone and enter the repo</span>
+<span class="cmd">$</span> <span class="arg">git clone https://github.com/your-username/fda-device-recall-explorer.git</span>
+<span class="cmd">$</span> <span class="arg">cd fda-device-recall-explorer</span>
+
+<span class="cmt"># Create and activate a virtual environment</span>
+<span class="cmd">$</span> <span class="arg">python -m venv .venv && source .venv/bin/activate</span>
+<span class="cmd">$</span> <span class="arg">pip install -r requirements.txt</span>
+
+<span class="cmt"># Launch</span>
+<span class="cmd">$</span> <span class="arg">streamlit run app.py</span>
+<span class="cmt"># Opens at http://localhost:8501</span></pre>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-wordmark">FDA Device Recall Explorer</span>
+      <div class="footer-links">
+        <a href="https://your-app-url.streamlit.app" target="_blank">Live App</a>
+        <a href="https://github.com/your-username/fda-device-recall-explorer" target="_blank">GitHub</a>
+        <a href="https://open.fda.gov/apis/device/recall/" target="_blank">openFDA</a>
+      </div>
+      <p class="footer-note">
+        Data from <a href="https://open.fda.gov/apis/device/recall/">openFDA /device/recall</a> · Updated weekly by the FDA ·
+        For research and informational use only — not for clinical decision-making · MIT License
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
